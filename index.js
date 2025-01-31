@@ -1,6 +1,7 @@
 const express = require('express')
 const app = express()
 const cors = require('cors')
+const jwt = require('jsonwebtoken');
 require('dotenv').config()
 const port = process.env.PORT || 7000;
 const { MongoClient, ServerApiVersion ,ObjectId  } = require('mongodb');
@@ -30,11 +31,66 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
+      //all collection 
     const donationUserCollection = client.db('BloodDonation').collection('users');
     const donationCollection = client.db('BloodDonation').collection('donation')
+    const Blog = client.db('BloodDonation').collection('blogs')
+
+    // jwt token 
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+      res.send({ token });
+    })
+
+      // middlewares 
+      const verifyToken = (req, res, next) => {
+        // console.log('inside verify token', req.headers.authorization);
+        if (!req.headers.authorization) {
+          return res.status(401).send({ message: 'unauthorized access' });
+        }
+        const token = req.headers.authorization.split(' ')[1];
+        jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+          if (err) {
+            return res.status(401).send({ message: 'unauthorized access' })
+          }
+          req.decoded = decoded;
+          next();
+        })
+      }
+
+      // use verify admin after verifyToken
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await donationUserCollection.findOne(query);
+      const isAdmin = user?.role === 'admin';
+      if (!isAdmin) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next();
+    }
 
 
-    app.get('/users', async (req, res) => {
+
+    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'forbidden access' })
+      }
+
+      const query = { email: email };
+      const user = await donationUserCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === 'admin';
+      }
+      res.send({ admin });
+    })
+
+    app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+      console.log(req.headers)
       try {
         const { status = 'all', page = 1, limit = 10 } = req.query;
         const filter = status === 'all' ? {} : { status };
@@ -58,6 +114,8 @@ async function run() {
         res.status(500).json({ error: 'Failed to fetch users' });
       }
     });
+
+    
     
     app.post('/users', async (req, res) => {
       try {
@@ -71,7 +129,7 @@ async function run() {
     });
     
     // Block a user
-    app.put('/users/block/:id', async (req, res) => {
+    app.put('/users/block/:id', verifyToken, verifyAdmin, async (req, res) => {
       try {
         const userId = req.params.id;
         if (!ObjectId.isValid(userId)) {
@@ -95,7 +153,7 @@ async function run() {
     });
     
     // Unblock a user
-    app.put('/users/unblock/:id', async (req, res) => {
+    app.put('/users/unblock/:id', verifyToken, verifyAdmin, async (req, res) => {
       try {
         const userId = req.params.id;
         if (!ObjectId.isValid(userId)) {
@@ -118,8 +176,8 @@ async function run() {
       }
     });
     
-    // Make a user a volunteer
-    app.put('/users/make-volunteer/:id', async (req, res) => {
+    // Make a user a volunteer 
+    app.put('/users/make-volunteer/:id', verifyToken, verifyAdmin, async (req, res) => {
       try {
         const userId = req.params.id;
         if (!ObjectId.isValid(userId)) {
@@ -143,7 +201,7 @@ async function run() {
     });
     
     // Make a user an admin
-    app.put('/users/make-admin/:id', async (req, res) => {
+    app.put('/users/make-admin/:id', verifyToken, verifyAdmin, async (req, res) => {
       try {
         const userId = req.params.id;
         if (!ObjectId.isValid(userId)) {
@@ -165,6 +223,48 @@ async function run() {
         res.status(500).json({ error: 'Failed to make user admin' });
       }
     });
+
+
+
+    // app.post('/api/blogs', async (req, res) => {
+    //   const { title, content, thumbnail } = req.body;
+    
+    //   const newBlog = new Blog({
+    //     title,
+    //     content,
+    //     thumbnail,  // ImgBB থেকে পাওয়া URL
+    //   });
+    
+    //   await newBlog.save();
+    //   res.status(200).json(newBlog);
+    // });
+
+// // Get Blogs
+// app.get('/api/blogs', async (req, res) => {
+//   const { status = 'draft' } = req.query;
+//   const blogs = await Blog.find({ status });
+//   res.json(blogs);
+// });
+
+// // Publish Blog
+// app.post('/api/blogs/publish/:id', async (req, res) => {
+//   const blog = await Blog.findByIdAndUpdate(req.params.id, { status: 'published' });
+//   res.json(blog);
+// });
+
+// // Unpublish Blog
+// app.post('/api/blogs/unpublish/:id', async (req, res) => {
+//   const blog = await Blog.findByIdAndUpdate(req.params.id, { status: 'draft' });
+//   res.json(blog);
+// });
+
+// // Delete Blog
+// app.delete('/api/blogs/:id', async (req, res) => {
+//   await Blog.findByIdAndDelete(req.params.id);
+//   res.json({ message: 'Blog deleted' });
+// });
+
+
     
 
 
