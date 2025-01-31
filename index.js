@@ -223,46 +223,13 @@ async function run() {
         res.status(500).json({ error: 'Failed to make user admin' });
       }
     });
-
-
-
-    // app.post('/api/blogs', async (req, res) => {
-    //   const { title, content, thumbnail } = req.body;
-    
-    //   const newBlog = new Blog({
-    //     title,
-    //     content,
-    //     thumbnail,  // ImgBB থেকে পাওয়া URL
-    //   });
-    
-    //   await newBlog.save();
-    //   res.status(200).json(newBlog);
-    // });
-
-// // Get Blogs
-// app.get('/api/blogs', async (req, res) => {
-//   const { status = 'draft' } = req.query;
-//   const blogs = await Blog.find({ status });
-//   res.json(blogs);
-// });
-
-// // Publish Blog
-// app.post('/api/blogs/publish/:id', async (req, res) => {
-//   const blog = await Blog.findByIdAndUpdate(req.params.id, { status: 'published' });
-//   res.json(blog);
-// });
-
-// // Unpublish Blog
-// app.post('/api/blogs/unpublish/:id', async (req, res) => {
-//   const blog = await Blog.findByIdAndUpdate(req.params.id, { status: 'draft' });
-//   res.json(blog);
-// });
-
-// // Delete Blog
-// app.delete('/api/blogs/:id', async (req, res) => {
-//   await Blog.findByIdAndDelete(req.params.id);
-//   res.json({ message: 'Blog deleted' });
-// });
+    // delete user
+    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await donationUserCollection.deleteOne(query);
+      res.send(result);
+    })
 
 
     
