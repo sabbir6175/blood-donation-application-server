@@ -70,8 +70,23 @@ async function run() {
       }
       next();
     }
+    // app.get('/user', verifyToken, verifyAdmin,  async(req,res)=>{
+      
+    //   const email = req.params.email;
+    //   console.log(email)
+    //   const query =  { email: email }
+    //   const user   = await donationUserCollection.findOne(query)
+    //   res.send(user)
+    // })
 
-
+    app.get('/donationRequest', async(req, res)=>{
+      const { status } = req.query;  
+      const query = status ? { status: status } : {}; 
+      const result =await donationCollection.find(query).toArray()
+      res.send(result)
+    })
+    
+    
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
