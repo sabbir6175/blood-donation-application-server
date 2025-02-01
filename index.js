@@ -79,14 +79,52 @@ async function run() {
     //   res.send(user)
     // })
 
-    app.get('/donationRequest', async(req, res)=>{
+    app.get('/donationRequest',  async(req, res)=>{
       const { status } = req.query;  
       const query = status ? { status: status } : {}; 
       const result =await donationCollection.find(query).toArray()
       res.send(result)
     })
+    // app.get('/donation', async (req, res) => {
+    //   const result = await donationCollection.find().toArray();
+    //   res.send(result);
+    // });
     
+    app.get('/donationRequest/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: id};
+      const result = await donationCollection.findOne(query);
+      res.send(result);
+    });
     
+    // In your backend file (app.js or routes.js)
+    app.put('/donationRequest/:id', async (req, res) => {
+      const { id } = req.params;
+      const { requesterName, requesterEmail } = req.body;  
+      try {
+        const result = await donationCollection.updateOne(
+          { _id: id },  // Find the request by ID
+          { 
+            $set: { 
+              status: 'inprogress',   
+              requesterName,               
+              requesterEmail,            
+              donationDate: new Date() 
+            }
+          }
+        );
+
+        if (result.modifiedCount > 0) {
+          return res.status(200).send({ message: "Donation confirmed, status updated." });
+        } else {
+          return res.status(400).send({ message: "Failed to update donation request." });
+        }
+      } catch (error) {
+        console.error(error);
+        return res.status(500).send({ message: "Internal server error." });
+      }
+    });
+
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
