@@ -70,43 +70,32 @@ async function run() {
       }
       next();
     }
-    // app.get('/user', verifyToken, verifyAdmin,  async(req,res)=>{
-      
-    //   const email = req.params.email;
-    //   console.log(email)
-    //   const query =  { email: email }
-    //   const user   = await donationUserCollection.findOne(query)
-    //   res.send(user)
-    // })
-
-    app.get('/donationRequest',  async(req, res)=>{
-      const { status } = req.query;  
-      const query = status ? { status: status } : {}; 
+    //get donation all data 
+    app.get('/donationRequest', verifyToken, async(req, res)=>{
+      const { donationStatus } = req.query;  
+      const query = donationStatus ? { donationStatus: donationStatus } : {}; 
       const result =await donationCollection.find(query).toArray()
       res.send(result)
     })
-    // app.get('/donation', async (req, res) => {
-    //   const result = await donationCollection.find().toArray();
-    //   res.send(result);
-    // });
-    
-    app.get('/donationRequest/:id', async (req, res) => {
+    app.get('/donationRequest/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
-      const query = {_id: id};
+      // const query = {_id: id};
+      const query = {_id: new ObjectId(id)}
       const result = await donationCollection.findOne(query);
       res.send(result);
     });
     
-    // In your backend file (app.js or routes.js)
-    app.put('/donationRequest/:id', async (req, res) => {
+    // updated my donation request page pending to inprogress
+    app.put('/donationRequest/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       const { requesterName, requesterEmail } = req.body;  
       try {
         const result = await donationCollection.updateOne(
-          { _id: id },  // Find the request by ID
+          // { _id: id },  // Find the request by ID
+          {_id: new ObjectId(id)},
           { 
             $set: { 
-              status: 'inprogress',   
+              donationStatus: 'inprogress',   
               requesterName,               
               requesterEmail,            
               donationDate: new Date() 
@@ -125,10 +114,68 @@ async function run() {
       }
     });
 
+app.get('/my-donation-requests', verifyToken, async (req, res) => {
+  const email = req.decoded.email; // Get the logged-in user's email
+  const { donationStatus, page = 1, limit = 10 } = req.query; // Pagination and filter parameters
+
+  // Construct the query object
+  const query = donationStatus ? 
+    { requesterEmail: email, donationStatus } : 
+    { requesterEmail: email };
+
+  try {
+    const donationRequests = await donationCollection
+      .find(query)
+      .skip((page - 1) * limit) // Pagination: skip results based on page number
+      .limit(Number(limit)) // Limit the number of results per page
+      .toArray();
+
+    const totalRequests = await donationCollection.countDocuments(query); // Count the total records for pagination
+    const totalPages = Math.ceil(totalRequests / limit); // Calculate total pages
+
+    res.json({
+      donationRequests,
+      totalRequests,
+      totalPages,
+    });
+  } catch (error) {
+    console.error('Error fetching donation requests:', error);
+    res.status(500).json({ error: 'Failed to fetch donation requests' });
+  }
+});
+
+    
+
+ 
+    app.put('/donationRequest/:id', verifyToken, async (req, res) => {
+      const { id } = req.params; // Get the donation request ID
+      const { donationStatus } = req.body; // Get the new status
+    
+      try {
+        const result = await donationCollection.updateOne(
+          { _id: new ObjectId(id) }, // Find donation request by ID
+          { $set: { donationStatus } } // Update the donation status
+        );
+    
+        if (result.modifiedCount > 0) {
+          return res.status(200).send({ message: "Donation request status updated." });
+        } else {
+          return res.status(400).send({ message: "Failed to update donation request." });
+        }
+      } catch (error) {
+        console.error(error);
+        return res.status(500).send({ message: "Internal server error." });
+      }
+    });
+    
+  
+    
+    
+    
+
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
-
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: 'forbidden access' })
       }
@@ -284,6 +331,55 @@ async function run() {
       res.send(result);
     })
 
+
+    app.post('/donation-requests', verifyToken,  async (req, res) => {
+   
+        // Extract the request body data
+        const {
+          requesterName,
+          requesterEmail,
+          recipientName,
+          recipientDistrict,
+          recipientUpazila,
+          hospitalName,
+          fullAddress,
+          bloodGroup,
+          donationDate,
+          donationTime,
+          requestMessage,
+        } = req.body;
+    
+        // Check if the user is blocked
+        const email = req.decoded.email;
+        const user = await donationUserCollection.findOne({ email });
+    
+        if (user.status === "blocked") {
+          return res.status(403).send({ message: "You are blocked and cannot make donation requests." });
+        }
+    
+        // Create the new donation request object
+        const newDonationRequest = {
+          requesterName,
+          requesterEmail,
+          recipientName,
+          recipientDistrict,
+          recipientUpazila,
+          hospitalName,
+          fullAddress,
+          bloodGroup,
+          donationDate,
+          donationTime,
+          requestMessage,
+          donationStatus: "pending", // Default status
+        };
+    
+        // Insert the donation request into the database
+        const result = await donationCollection.insertOne(newDonationRequest);
+        res.send(result)
+    });
+    
+    
+    
 
     
 
