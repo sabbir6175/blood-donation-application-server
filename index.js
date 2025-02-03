@@ -70,14 +70,26 @@ async function run() {
       }
       next();
     }
+      // use verify admin after verifyToken
+    const verifyDonor = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await donationUserCollection.findOne(query);
+      const isDonor = user?.role === 'donor';
+      if (!isDonor) {
+        return res.status(403).send({ message: 'forbidden access' });
+      }
+      next();
+    }
     //get donation all data 
-    app.get('/donationRequest', verifyToken, async(req, res)=>{
+    app.get('/donationRequest',  async(req, res)=>{
       const { donationStatus } = req.query;  
       const query = donationStatus ? { donationStatus: donationStatus } : {}; 
       const result =await donationCollection.find(query).toArray()
       res.send(result)
     })
-    app.get('/donationRequest/:id', verifyToken, async (req, res) => {
+   
+    app.get('/donationRequest/:id', verifyToken,  async (req, res) => {
       const id = req.params.id;
       // const query = {_id: id};
       const query = {_id: new ObjectId(id)}
@@ -86,7 +98,7 @@ async function run() {
     });
     
     // updated my donation request page pending to inprogress
-    app.put('/donationRequest/:id', verifyToken, async (req, res) => {
+    app.put('/donationRequest/:id', verifyToken,async (req, res) => {
       const { id } = req.params;
       const { requesterName, requesterEmail } = req.body;  
       try {
@@ -113,48 +125,46 @@ async function run() {
         return res.status(500).send({ message: "Internal server error." });
       }
     });
+    //dashboard my donation requests router
+    app.get('/my-donation-requests', verifyToken, async (req, res) => {
+      const email = req.decoded.email; // Get the logged-in user's email
+      const { donationStatus, page = 1, limit = 10 } = req.query; // Pagination and filter parameters
 
-app.get('/my-donation-requests', verifyToken, async (req, res) => {
-  const email = req.decoded.email; // Get the logged-in user's email
-  const { donationStatus, page = 1, limit = 10 } = req.query; // Pagination and filter parameters
+      // Construct the query object
+      const query = donationStatus ? 
+        { requesterEmail: email, donationStatus } : 
+        { requesterEmail: email };
 
-  // Construct the query object
-  const query = donationStatus ? 
-    { requesterEmail: email, donationStatus } : 
-    { requesterEmail: email };
+      try {
+        const donationRequests = await donationCollection
+          .find(query)
+          .skip((page - 1) * limit) // Pagination: skip results based on page number
+          .limit(Number(limit)) // Limit the number of results per page
+          .toArray();
 
-  try {
-    const donationRequests = await donationCollection
-      .find(query)
-      .skip((page - 1) * limit) // Pagination: skip results based on page number
-      .limit(Number(limit)) // Limit the number of results per page
-      .toArray();
+        const totalRequests = await donationCollection.countDocuments(query); // Count the total records for pagination
+        const totalPages = Math.ceil(totalRequests / limit); // Calculate total pages
 
-    const totalRequests = await donationCollection.countDocuments(query); // Count the total records for pagination
-    const totalPages = Math.ceil(totalRequests / limit); // Calculate total pages
-
-    res.json({
-      donationRequests,
-      totalRequests,
-      totalPages,
+        res.json({
+          donationRequests,
+          totalRequests,
+          totalPages,
+        });
+      } catch (error) {
+        console.error('Error fetching donation requests:', error);
+        res.status(500).json({ error: 'Failed to fetch donation requests' });
+      }
     });
-  } catch (error) {
-    console.error('Error fetching donation requests:', error);
-    res.status(500).json({ error: 'Failed to fetch donation requests' });
-  }
-});
 
     
-
- 
-    app.put('/donationRequest/:id', verifyToken, async (req, res) => {
-      const { id } = req.params; // Get the donation request ID
-      const { donationStatus } = req.body; // Get the new status
+    app.put('/donationRequest/:id', verifyToken,  async (req, res) => {
+      const { id } = req.params; 
+      const { donationStatus } = req.body; 
     
       try {
         const result = await donationCollection.updateOne(
-          { _id: new ObjectId(id) }, // Find donation request by ID
-          { $set: { donationStatus } } // Update the donation status
+          { _id: new ObjectId(id) }, 
+          { $set: { donationStatus } } 
         );
     
         if (result.modifiedCount > 0) {
@@ -168,12 +178,31 @@ app.get('/my-donation-requests', verifyToken, async (req, res) => {
       }
     });
     
-  
-    
-    
-    
 
 
+
+
+    //get donation all data admin dashboard
+    app.get('/donationRequest/data', verifyToken, verifyAdmin,  async(req, res)=>{ 
+      const result =await donationCollection.find().toArray()
+      res.send(result)
+    })
+
+    app.get('/users/donor/:email', verifyToken,  async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'forbidden access' })
+      }
+
+      const query = { email: email };
+      const user = await donationUserCollection.findOne(query);
+      let donor = false;
+      if (user) {
+        donor = user?.role === 'donor';
+      }
+      res.send({ donor });
+    })
+    
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
       if (email !== req.decoded.email) {
@@ -189,6 +218,14 @@ app.get('/my-donation-requests', verifyToken, async (req, res) => {
       res.send({ admin });
     })
 
+    // app.get('/users/data', verifyToken, async (req, res) => {
+    //   console.log(req.headers)
+    //     const totalUsers = await donationUserCollection.find().toArray()
+    //     res.json({
+    //       totalUsers
+    //     });
+    //   } 
+    // );
     app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
       console.log(req.headers)
       try {
