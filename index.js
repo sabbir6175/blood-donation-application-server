@@ -202,24 +202,7 @@ async function run() {
       }
     });
 
-    app.put('/donation-requests/:id', async(req,res)=>{
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id)}
-      const options = { upsert: true }
-      const updatedCampaign = req.body;
-      const Campaign ={
-        $set:{
-          imageUrl: updatedCampaign.imageUrl,
-          CampaignTitle: updatedCampaign.CampaignTitle,
-          CampaignType: updatedCampaign.CampaignType,
-          description: updatedCampaign.description,
-          donation: updatedCampaign.donation,
-          deadline: updatedCampaign.deadline
-        }
-      } 
-      const result = await tulipCollection.updateOne(filter, Campaign, options)
-      res.send(result)
-    })
+   
 
     
     // Get a user (donor or admin) by email
@@ -351,39 +334,50 @@ async function run() {
   });
 
   // Publish a blog (only admin can do this)
-  app.post('/blogs/publish/:id', verifyToken, verifyAdmin, async (req, res) => {
-  const id = req.params.id
-    const query = {_id: new ObjectId(id)}
+  app.put('/blogs/publish/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
     try {
-      const blog = await BlogCollection.findOne(query);
-      if (!blog) return res.status(404).json({ message: 'Blog not found' });
-
-      blog.status = 'published';
+      const result = await BlogCollection.updateOne(query, {
+        $set: { status: 'published' }
+      });
   
-
-      res.status(200).json(blog);
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ message: 'Blog not found' });
+      }
+  
+      // Fetch the updated blog to return
+      const updatedBlog = await BlogCollection.findOne(query);
+      res.status(200).json(updatedBlog);
     } catch (error) {
       console.error('Error publishing blog:', error);
       res.status(500).json({ message: 'Failed to publish blog' });
     }
   });
-
-// Unpublish a blog (only admin can do this)
-app.post('/blogs/unpublish/:id', verifyToken, verifyAdmin, async (req, res) => {
-  const id = req.params.id
-  const query = {_id: new ObjectId(id)}
-  try {
-    const blog = await BlogCollection.findOne(query);
-    if (!blog) return res.status(404).json({ message: 'Blog not found' });
-
-    blog.status = 'draft';
-
-    res.status(200).json(blog);
-  } catch (error) {
-    console.error('Error unpublishing blog:', error);
-    res.status(500).json({ message: 'Failed to unpublish blog' });
-  }
-});
+  
+  
+  // Unpublish a blog (only admin can do this)
+  app.put('/blogs/unpublish/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const id = req.params.id;
+    const query = { _id: new ObjectId(id) };
+    try {
+      const result = await BlogCollection.updateOne(query, {
+        $set: { status: 'draft' }
+      });
+  
+      if (result.matchedCount === 0) {
+        return res.status(404).json({ message: 'Blog not found' });
+      }
+  
+      // Fetch the updated blog to return
+      const updatedBlog = await BlogCollection.findOne(query);
+      res.status(200).json(updatedBlog);
+    } catch (error) {
+      console.error('Error unpublishing blog:', error);
+      res.status(500).json({ message: 'Failed to unpublish blog' });
+    }
+  });
+  
 
 // Delete a blog (only admin can do this)
 app.delete('/blogs/:id', verifyToken, verifyAdmin, async (req, res) => {
