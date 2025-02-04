@@ -54,6 +54,15 @@ async function run() {
     };
 
     // Middleware to verify if user is a donor
+    const verifyVolunteer = async (req, res, next) => {
+      const email = req.decoded.email;
+      const user = await donationUserCollection.findOne({ email });
+      if (user?.role !== 'volunteer') {
+        return res.status(403).send({ message: 'Forbidden access' });
+      }
+      next();
+    };
+    // Middleware to verify if user is a donor
     const verifyDonor = async (req, res, next) => {
       const email = req.decoded.email;
       const user = await donationUserCollection.findOne({ email });
@@ -212,6 +221,7 @@ async function run() {
       res.send(result)
     })
 
+    
     // Get a user (donor or admin) by email
     app.get('/users/donor/:email', verifyToken, async (req, res) => {
       const email = req.params.email;
@@ -222,6 +232,18 @@ async function run() {
       const user = await donationUserCollection.findOne({ email });
       const donor = user?.role === 'donor';
       res.send({ donor });
+    });
+
+    // Get a user (donor or admin) by email
+    app.get('/users/volunteer/:email', verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: 'Forbidden access' });
+      }
+
+      const user = await donationUserCollection.findOne({ email });
+      const volunteer = user?.role === 'donor';
+      res.send({ volunteer });
     });
 
     app.get('/users/admin/:email', verifyToken, async (req, res) => {
@@ -305,31 +327,73 @@ async function run() {
       res.send(result);
     });
     //blogs collection
-    app.post('/blogs', async (req, res) => {
-      try {
-        const { title, content, date } = req.body;
-    
-        // If file is uploaded, get the file path, else store an empty string
-        const thumbnail = req.file ? req.file.path : ''; 
-    
+    app.post('/blogs',  async (req, res) => {
+      
+        const { title, content, date, thumbnail } = req.body;
         // Insert the blog data into your MongoDB collection
         const newBlog = {
           title,
-          content,
-          date,  // Convert the date to ISO format
-          thumbnail,  // Save the file path (or use the external image URL)
+          content,     
+          date, 
+          thumbnail,     
+          status: 'draft', 
         };
-    
-        // Save to MongoDB collection (assuming BlogCollection is your MongoDB collection)
         const result = await BlogCollection.insertOne(newBlog);
-        
-        // Send a response with the result
-        res.status(201).json({ message: 'Blog created successfully', blog: result });
-      } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to add blog' });
-      }
-    });
+        res.send(result)
+  });
+
+    // Fetch blogs based on status (draft or published)
+  app.get('/blogs', async (req, res) => {
+    const { status } = req.query;
+      const blogs =  await BlogCollection.find({ status }).toArray();
+      res.send(blogs)
+    
+  });
+
+  // Publish a blog (only admin can do this)
+  app.post('/blogs/publish/:id', verifyToken, verifyAdmin, async (req, res) => {
+  const id = req.params.id
+    const query = {_id: new ObjectId(id)}
+    try {
+      const blog = await BlogCollection.findOne(query);
+      if (!blog) return res.status(404).json({ message: 'Blog not found' });
+
+      blog.status = 'published';
+  
+
+      res.status(200).json(blog);
+    } catch (error) {
+      console.error('Error publishing blog:', error);
+      res.status(500).json({ message: 'Failed to publish blog' });
+    }
+  });
+
+// Unpublish a blog (only admin can do this)
+app.post('/blogs/unpublish/:id', verifyToken, verifyAdmin, async (req, res) => {
+  const id = req.params.id
+  const query = {_id: new ObjectId(id)}
+  try {
+    const blog = await BlogCollection.findOne(query);
+    if (!blog) return res.status(404).json({ message: 'Blog not found' });
+
+    blog.status = 'draft';
+
+    res.status(200).json(blog);
+  } catch (error) {
+    console.error('Error unpublishing blog:', error);
+    res.status(500).json({ message: 'Failed to unpublish blog' });
+  }
+});
+
+// Delete a blog (only admin can do this)
+app.delete('/blogs/:id', verifyToken, verifyAdmin, async (req, res) => {
+ 
+  const id = req.params.id;
+  const query = { _id: new ObjectId(id)}
+  const result = await BlogCollection.deleteOne(query)
+  res.send(result)
+});
+    
 
   
 
