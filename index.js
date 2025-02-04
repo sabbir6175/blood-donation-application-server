@@ -325,12 +325,21 @@ async function run() {
         res.send(result)
   });
 
-    // Fetch blogs based on status (draft or published)
+  // Fetch blogs based on status (draft or published)
+  app.get('/blogs/data', async (req, res) => {
+      const blogs =  await BlogCollection.find().toArray();
+      res.send(blogs)
+  });
+  app.get('/blogs/data/:id', async (req, res) => {
+    const id = req.params.id;
+    const query = {_id: new ObjectId(id)}
+      const blogs =  await BlogCollection.findOne(query)
+      res.send(blogs)
+  });
   app.get('/blogs', async (req, res) => {
     const { status } = req.query;
       const blogs =  await BlogCollection.find({ status }).toArray();
       res.send(blogs)
-    
   });
 
   // Publish a blog (only admin can do this)
