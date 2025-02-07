@@ -62,6 +62,7 @@ async function run() {
       }
       next();
     };
+    // console.log(verifyVolunteer)
     // Middleware to verify if user is a donor
     const verifyDonor = async (req, res, next) => {
       const email = req.decoded.email;
@@ -72,7 +73,14 @@ async function run() {
       next();
     };
 
+
+    app.get('/donationRequest/data',   async (req, res) => {
+      const result = await donationCollection.find({donationStatus: "inprogress"}).toArray();
+      res.send(result);
+    });
+
     // Get all donation requests, can filter by donationStatus or email
+    
     app.get('/donationRequest', async (req, res) => {
       const { donationStatus, email } = req.query;
       let query = {};
@@ -99,39 +107,36 @@ async function run() {
     });
 
     // Update donation request (status or other fields)
-    app.put('/donationRequest/:id', verifyToken, async (req, res) => {
-      const { id } = req.params;
-      const { donationStatus, requesterName, requesterEmail } = req.body;
-      const updateFields = {};
-
-      // Update donation status
-      if (donationStatus) {
-        updateFields.donationStatus = donationStatus;
-      }
-
-      // Update requester information
-      if (requesterName) updateFields.requesterName = requesterName;
-      if (requesterEmail) updateFields.requesterEmail = requesterEmail;
-
-      // Set donation date if status is 'inprogress'
-      if (donationStatus === 'inprogress') {
-        updateFields.donationDate = new Date();
-      }
-
-      try {
-        const result = await donationCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: updateFields }
-        );
-        if (result.modifiedCount > 0) {
-          res.status(200).send({ message: 'Donation request updated successfully' });
-        } else {
-          res.status(400).send({ message: 'Failed to update donation request' });
+    app.patch('/donationRequest/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;  
+      const updateDonation = req.body; 
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: false };
+      const donationUpdate = {
+        $set: {
+          requesterName: updateDonation.requesterName,
+          requesterEmail: updateDonation.requesterEmail,
+          recipientName: updateDonation.recipientName,
+          recipientDistrict: updateDonation.recipientDistrict,
+          recipientUpazila: updateDonation.recipientUpazila,
+          hospitalName: updateDonation.hospitalName,
+          fullAddress: updateDonation.fullAddress,
+          bloodGroup: updateDonation.bloodGroup,
+          donationDate: updateDonation.donationDate,
+          donationTime: updateDonation.donationTime,
+          requestMessage: updateDonation.requestMessage,
+          donationStatus: updateDonation.donationStatus,
         }
-      } catch (error) {
-        res.status(500).send({ message: 'Internal server error' });
-      }
+      };
+    
+        const result = await donationCollection.updateOne(filter, donationUpdate, options);
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: 'Donation request not found or no changes made' });
+        }
+        res.status(200).send({ message: 'Donation request updated successfully', result });
+    
     });
+    
 
     // Get all donation requests by the logged-in user (pagination supported)
     app.get('/my-donation-requests', verifyToken, async (req, res) => {
@@ -311,7 +316,6 @@ async function run() {
     });
     //blogs collection
     app.post('/blogs',  async (req, res) => {
-      
         const { title, content, date, thumbnail } = req.body;
         // Insert the blog data into your MongoDB collection
         const newBlog = {
@@ -388,18 +392,23 @@ async function run() {
   });
   
 
-// Delete a blog (only admin can do this)
-app.delete('/blogs/:id', verifyToken, verifyAdmin, async (req, res) => {
- 
-  const id = req.params.id;
-  const query = { _id: new ObjectId(id)}
-  const result = await BlogCollection.deleteOne(query)
-  res.send(result)
-});
+      // Delete a blog (only admin can do this)
+      app.delete('/blogs/:id', verifyToken, verifyAdmin, async (req, res) => {
+      
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id)}
+        const result = await BlogCollection.deleteOne(query)
+        res.send(result)
+      });
     
 
-  
-
+    app.delete('/users/:id', async(req,res)=>{
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id)}
+      const result = await donationUserCollection.deleteOne(query)
+      res.send(result)
+    
+    })
     app.delete('/donationRequest/:id', async(req,res)=>{
       const id = req.params.id;
       const query = { _id: new ObjectId(id)}
@@ -413,6 +422,10 @@ app.delete('/blogs/:id', verifyToken, verifyAdmin, async (req, res) => {
   }
 }
 run().catch(console.dir);
+
+app.get('/', (req, res) => {
+  res.send('Server is running')
+})
 
 // Start the server
 app.listen(7000, () => {
