@@ -264,6 +264,12 @@ async function run() {
         res.status(500).json({ error: 'Failed to fetch users' });
       }
     });
+    app.get('/users/:email', async (req, res) => {
+      const email = req.params.email
+        const result = await donationUserCollection.findOne({email:email});
+        res.send(result);
+   
+    });
 
     // Create a new user (for registration)
     app.post('/users', async (req, res) => {
