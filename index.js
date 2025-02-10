@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
+const port = process.env.PORT || 7000; 
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -232,31 +233,8 @@ async function run() {
       }
     });
 
-    // Get a user (donor or admin) by email
-    app.get("/users/donor/:email", verifyToken, async (req, res) => {
-      const email = req.params.email;
-      if (email !== req.decoded.email) {
-        return res.status(403).send({ message: "Forbidden access" });
-      }
-
-      const user = await donationUserCollection.findOne({ email });
-      const donor = user?.role === "donor";
-      res.send({ donor });
-    });
-
-    // Get a user (donor or admin) by email
-    app.get("/users/volunteer/:email", verifyToken, async (req, res) => {
-      const email = req.params.email;
-      if (email !== req.decoded.email) {
-        return res.status(403).send({ message: "Forbidden access" });
-      }
-
-      const user = await donationUserCollection.findOne({ email });
-      const volunteer = user?.role === "donor";
-      res.send({ volunteer });
-    });
-
-    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+    //role management email based
+    app.get("/users/role/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: "Forbidden access" });
@@ -264,11 +242,13 @@ async function run() {
 
       const user = await donationUserCollection.findOne({ email });
       const admin = user?.role === "admin";
-      res.send({ admin });
+      const volunteer = user?.role === "volunteer";
+      const donor = user?.role === "donor";
+      res.send({ admin, volunteer,donor });
     });
 
     // Get all users (admin only)
-    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users", verifyToken, async (req, res) => {
       try {
         const { status = "all", page = 1, limit = 10 } = req.query;
         const filter = status === "all" ? {} : { status };
@@ -357,15 +337,9 @@ async function run() {
       }
     );
     //profile updated
-    app.patch("/users/:id", async (req, res) => {
+    app.put("/users/:id", async (req, res) => {
       const id = req.params.id;
       console.log(id);
-
-      // Validate ObjectId
-      // if (!ObjectId.isValid(id)) {
-      //   return res.status(400).send({ message: 'Invalid user ID' });
-      // }
-
       const filter = { _id: new ObjectId(id) };
       const options = { upsert: true };
       const updateUser = req.body;
@@ -513,6 +487,6 @@ app.get("/", (req, res) => {
 });
 
 // Start the server
-app.listen(7000, () => {
-  console.log("Server is running on port 7000");
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
