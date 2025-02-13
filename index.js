@@ -34,7 +34,7 @@ async function run() {
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
+        expiresIn: "48h",
       });
       res.send({ token });
     });
@@ -119,6 +119,28 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch donation request" });
       }
     });
+
+    app.patch("/donationRequestStatus/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const updateDonation = req.body; 
+      const filter = { _id: new ObjectId(id) };
+      const donationUpdate = {
+        $set: {
+          donationStatus: updateDonation.donationStatus, 
+        },
+      };
+    
+      const result = await donationCollection.updateOne(filter, donationUpdate);
+      
+      if (result.modifiedCount === 0) {
+        return res
+          .status(404)
+          .send({ message: "Donation request not found or no changes made" });
+      }
+    
+      res.status(200).send({ message: "Donation request updated successfully", result });
+    });
+    
 
     // Update donation request (status or other fields)
     app.patch("/donationRequest/:id", verifyToken, async (req, res) => {
