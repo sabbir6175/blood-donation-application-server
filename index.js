@@ -2,7 +2,8 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
-const port = process.env.PORT || 7000; 
+const port = process.env.PORT || 7000;
+// const stripe = require("stripe")(`${process.env.YOUR_STRIPE_SECRET_KEY}`);
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -29,6 +30,7 @@ async function run() {
       .db("BloodDonation")
       .collection("donation");
     const BlogCollection = client.db("BloodDonation").collection("blogs");
+    const FundingCollection = client.db("BloodDonation").collection("funding");
 
     // JWT Route to generate token
     app.post("/jwt", async (req, res) => {
@@ -84,6 +86,52 @@ async function run() {
       next();
     };
 
+  // Endpoint for handling donations
+// app.post("/funding", async (req, res) => {
+//   const { amount, token, userEmail } = req.body;
+
+//   try {
+//     // Step 1: Charge the user using Stripe
+//     const charge = await stripe.charges.create({
+//       amount: amount * 100, // Stripe expects amount in cents
+//       currency: "usd", // Change currency if needed
+//       source: token.id, // The token received from Stripe Checkout
+//       description: "Donation for the organization",
+//     });
+
+//     const donation = {
+//       amount,
+//       userEmail,
+//       date: new Date(), // Store the current date and time
+//     };
+
+//     await FundingCollection.insertOne(donation); // Insert the donation record into the database
+
+//     // Step 3: Send a response back to the client
+//     res.status(200).json({ message: "Donation successful!" });
+//   } catch (error) {
+//     console.error("Payment failed:", error);
+//     res.status(500).json({ error: "Payment failed, please try again." });
+//   }
+// });
+
+    // // Endpoint to get funds (for pagination)
+    // app.get("/funds", async (req, res) => {
+    //   const { page = 1, limit = 10 } = req.query;
+    //   const skip = (page - 1) * limit;
+
+    //   // Fetch paginated funds from the database
+    //   // Example: const funds = await Fund.find().skip(skip).limit(limit);
+
+    //   // Fetch total funds for pagination
+    //   // Example: const totalFunds = await Fund.countDocuments();
+
+    //   res.status(200).json({
+    //     funds, // Replace with actual funds data from the database
+    //     totalFunds, // Replace with the total funds amount
+    //   });
+    // });
+
     app.get("/donationRequest/data", async (req, res) => {
       const result = await donationCollection
         .find({ donationStatus: "inprogress" })
@@ -122,25 +170,28 @@ async function run() {
 
     app.patch("/donationRequestStatus/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
-      const updateDonation = req.body; 
+      const updateDonation = req.body;
       const filter = { _id: new ObjectId(id) };
       const donationUpdate = {
         $set: {
-          donationStatus: updateDonation.donationStatus, 
+          donationStatus: updateDonation.donationStatus,
+          requesterName: updateDonation.requesterName,
+          requesterEmail: updateDonation.requesterEmail,
         },
       };
-    
+
       const result = await donationCollection.updateOne(filter, donationUpdate);
-      
+
       if (result.modifiedCount === 0) {
         return res
           .status(404)
           .send({ message: "Donation request not found or no changes made" });
       }
-    
-      res.status(200).send({ message: "Donation request updated successfully", result });
+
+      res
+        .status(200)
+        .send({ message: "Donation request updated successfully", result });
     });
-    
 
     // Update donation request (status or other fields)
     app.patch("/donationRequest/:id", verifyToken, async (req, res) => {
@@ -224,11 +275,9 @@ async function run() {
       const email = req.decoded.email;
       const user = await donationUserCollection.findOne({ email });
       if (user.status === "blocked") {
-        return res
-          .status(403)
-          .send({
-            message: "You are blocked and cannot make donation requests",
-          });
+        return res.status(403).send({
+          message: "You are blocked and cannot make donation requests",
+        });
       }
 
       // Create new donation request object
@@ -266,7 +315,7 @@ async function run() {
       const admin = user?.role === "admin";
       const volunteer = user?.role === "volunteer";
       const donor = user?.role === "donor";
-      res.send({ admin, volunteer,donor });
+      res.send({ admin, volunteer, donor });
     });
 
     // Get all users (admin only)
@@ -472,7 +521,7 @@ async function run() {
           const updatedBlog = await BlogCollection.findOne(query);
           res.status(200).json(updatedBlog);
         } catch (error) {
-          console.error("Error unpublishing blog:", error);
+          console.error("Error unPublishing blog:", error);
           res.status(500).json({ message: "Failed to unpublish blog" });
         }
       }
