@@ -7,7 +7,10 @@ const port = process.env.PORT || 7000;
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
-app.use(cors());
+app.use(cors({
+  origin: ['https://blood-donation-c92df.web.app'], 
+  credentials: true, 
+}));
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vlz3r.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -22,7 +25,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const donationUserCollection = client
       .db("BloodDonation")
       .collection("users");
@@ -36,7 +39,7 @@ async function run() {
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "48h",
+        expiresIn: "1h",
       });
       res.send({ token });
     });
@@ -47,11 +50,14 @@ async function run() {
         return res.status(401).send({ message: "Unauthorized access" });
       }
       const token = req.headers.authorization.split(" ")[1];
+      // console.log('token :',token)
       jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
         if (err) {
           return res.status(401).send({ message: "Unauthorized access" });
         }
+    
         req.decoded = decoded;
+        // console.log("Decoded payload:", decoded); 
         next();
       });
     };
@@ -168,7 +174,7 @@ async function run() {
       }
     });
 
-    app.patch("/donationRequestStatus/:id", verifyToken, async (req, res) => {
+    app.patch("/donationRequestStatus/:id", async (req, res) => {
       const id = req.params.id;
       const updateDonation = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -194,7 +200,7 @@ async function run() {
     });
 
     // Update donation request (status or other fields)
-    app.patch("/donationRequest/:id", verifyToken, async (req, res) => {
+    app.patch("/donationRequest/:id", async (req, res) => {
       const id = req.params.id;
       const updateDonation = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -256,7 +262,7 @@ async function run() {
     });
 
     // Add a new donation request
-    app.post("/donation-requests", verifyToken, async (req, res) => {
+    app.post("/donation-requests", verifyToken,   async (req, res) => {
       const {
         requesterName,
         requesterEmail,
@@ -319,7 +325,7 @@ async function run() {
     });
 
     // Get all users (admin only)
-    app.get("/users", verifyToken, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const { status = "all", page = 1, limit = 10 } = req.query;
         const filter = status === "all" ? {} : { status };
@@ -547,8 +553,13 @@ async function run() {
       const result = await donationCollection.deleteOne(query);
       res.send(result);
     });
+
+      // Send a ping to confirm a successful connection
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensure client will close when done
+    // await client.close();
   }
 }
 run().catch(console.dir);
