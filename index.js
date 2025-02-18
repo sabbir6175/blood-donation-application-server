@@ -325,7 +325,25 @@ async function run() {
     });
 
     // Get all users (admin only)
-    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/admin/users", verifyToken,  verifyAdmin, async (req, res) => {
+      try {
+        const { status = "all", page = 1, limit = 10 } = req.query;
+        const filter = status === "all" ? {} : { status };
+        const users = await donationUserCollection
+          .find(filter)
+          .skip((page - 1) * limit)
+          .limit(Number(limit))
+          .toArray();
+
+        const totalUsers = await donationUserCollection.countDocuments(filter);
+        const totalPages = Math.ceil(totalUsers / limit);
+
+        res.json({ users, totalUsers, totalPages });
+      } catch (error) {
+        res.status(500).json({ error: "Failed to fetch users" });
+      }
+    });
+    app.get("/volunteer/user", verifyToken, verifyVolunteer,  async (req, res) => {
       try {
         const { status = "all", page = 1, limit = 10 } = req.query;
         const filter = status === "all" ? {} : { status };
