@@ -2,7 +2,48 @@
 
 This is the backend API for a blood donation platform that helps manage blood donation requests, users, and blog posts. The system uses JWT authentication for secure access and supports role-based access control (Admin, Volunteer, Donor).
 
-## API Endpoints
+## Blood Donation Server Setup Instructions
+
+### Prerequisites
+
+- Node.js (v20.18.0)
+- MongoDB (Atlas or local MongoDB setup)
+- JWT Secret Token
+
+### Steps
+
+1. **Clone the repository**:
+    ```bash
+    git clone https://github.com/sabbir6175/blood-donation-application-server.git
+    cd blood-donation-application-server
+    ```
+
+2. **Install dependencies**:
+    ```bash
+     "@stripe/stripe-js": "^5.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.12.0"
+          /
+      npm install
+    ```
+
+3. **Set up environment variables**:
+    Create a `.env` file in the root directory and add the following:
+    ```env
+    DB_USER=your_mongodb_user
+    DB_PASS=your_mongodb_password
+    JWT_SECRET_TOKEN=your_jwt_secret_token
+    ```
+
+4. **Start the server**:
+    ```bash
+    nodemon index.js
+    ```
+    The server will run on port `3000` by default.
+   
 
 ### Authentication Routes
 - **POST /jwt**: Generate JWT token.
