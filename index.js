@@ -3,12 +3,18 @@ const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 7000;
-// const stripe = require("stripe")(`${process.env.YOUR_STRIPE_SECRET_KEY}`);
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
+// console.log('Stripe key:', process.env.STRIPE_SECRET_KEY);
+
+
 app.use(cors({
-  origin: ['https://blood-donation-c92df.web.app'], 
+  origin: [
+    'https://blood-donation-c92df.web.app',
+    'http://localhost:5173'
+  ], 
   credentials: true, 
 }));
 app.use(express.json());
@@ -571,6 +577,55 @@ async function run() {
       const result = await donationCollection.deleteOne(query);
       res.send(result);
     });
+
+
+    // Endpoint to create a payment intent (for Stripe)
+
+    app.get('/funds', verifyToken, async (req, res) => {
+      const { page = 1, limit = 10 } = req.query;
+      const pageNumber = parseInt(page);
+      const pageSize = parseInt(limit);
+      const funds = await FundingCollection
+        .find()
+        .sort({ fundingDate: -1 })
+        .skip((pageNumber - 1) * pageSize)
+        .limit(pageSize)
+        .toArray();
+      const totalContributions = await FundingCollection.countDocuments();
+      res.send({ funds, totalContributions });
+    });
+
+
+    app.post('/create-payment-intent', async (req, res) => {
+    
+        const { fundAmount } = req.body;
+        if (!fundAmount) {
+          return res.status(400).json({ error: "Fund amount is required" });
+        }
+        const amount = parseInt(fundAmount * 100);
+        try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: 'usd',
+          payment_method_types: ['card']
+        });
+
+        res.send({
+          clientSecret: paymentIntent.client_secret
+        })
+      } catch (error) {
+        console.error('Stripe error:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    app.post('/give-fund', verifyToken, async (req, res) => {
+      const fund = req.body;
+      const result = await FundingCollection.insertOne(fund);
+      res.send(result);
+    });
+
+
 
       // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
