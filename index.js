@@ -9,14 +9,16 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 // console.log('Stripe key:', process.env.STRIPE_SECRET_KEY);
 
-
-app.use(cors({
-  origin: [
-    'https://blood-donation-c92df.web.app',
-    'http://localhost:5173'
-  ], 
-  credentials: true, 
-}));
+app.use(
+  cors({
+    origin: [
+      "https://blood-donation-c92df.web.app",
+      "http://localhost:5173",
+      "http://localhost:7000",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.vlz3r.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -61,9 +63,9 @@ async function run() {
         if (err) {
           return res.status(401).send({ message: "Unauthorized access" });
         }
-    
+
         req.decoded = decoded;
-        // console.log("Decoded payload:", decoded); 
+        // console.log("Decoded payload:", decoded);
         next();
       });
     };
@@ -98,34 +100,34 @@ async function run() {
       next();
     };
 
-  // Endpoint for handling donations
-// app.post("/funding", async (req, res) => {
-//   const { amount, token, userEmail } = req.body;
+    // Endpoint for handling donations
+    // app.post("/funding", async (req, res) => {
+    //   const { amount, token, userEmail } = req.body;
 
-//   try {
-//     // Step 1: Charge the user using Stripe
-//     const charge = await stripe.charges.create({
-//       amount: amount * 100, // Stripe expects amount in cents
-//       currency: "usd", // Change currency if needed
-//       source: token.id, // The token received from Stripe Checkout
-//       description: "Donation for the organization",
-//     });
+    //   try {
+    //     // Step 1: Charge the user using Stripe
+    //     const charge = await stripe.charges.create({
+    //       amount: amount * 100, // Stripe expects amount in cents
+    //       currency: "usd", // Change currency if needed
+    //       source: token.id, // The token received from Stripe Checkout
+    //       description: "Donation for the organization",
+    //     });
 
-//     const donation = {
-//       amount,
-//       userEmail,
-//       date: new Date(), // Store the current date and time
-//     };
+    //     const donation = {
+    //       amount,
+    //       userEmail,
+    //       date: new Date(), // Store the current date and time
+    //     };
 
-//     await FundingCollection.insertOne(donation); // Insert the donation record into the database
+    //     await FundingCollection.insertOne(donation); // Insert the donation record into the database
 
-//     // Step 3: Send a response back to the client
-//     res.status(200).json({ message: "Donation successful!" });
-//   } catch (error) {
-//     console.error("Payment failed:", error);
-//     res.status(500).json({ error: "Payment failed, please try again." });
-//   }
-// });
+    //     // Step 3: Send a response back to the client
+    //     res.status(200).json({ message: "Donation successful!" });
+    //   } catch (error) {
+    //     console.error("Payment failed:", error);
+    //     res.status(500).json({ error: "Payment failed, please try again." });
+    //   }
+    // });
 
     // // Endpoint to get funds (for pagination)
     // app.get("/funds", async (req, res) => {
@@ -206,41 +208,61 @@ async function run() {
     });
 
     // Update donation request (status or other fields)
+    // app.patch("/donationRequest/:id", async (req, res) => {
+    //   const id = req.params.id;
+    //   const updateDonation = req.body;
+    //   const filter = { _id: new ObjectId(id) };
+    //   const options = { upsert: true };
+    //   const donationUpdate = {
+    //     $set: {
+    //       requesterName: updateDonation.requesterName,
+    //       requesterEmail: updateDonation.requesterEmail,
+    //       recipientName: updateDonation.recipientName,
+    //       recipientDistrict: updateDonation.recipientDistrict,
+    //       recipientUpazila: updateDonation.recipientUpazila,
+    //       hospitalName: updateDonation.hospitalName,
+    //       fullAddress: updateDonation.fullAddress,
+    //       bloodGroup: updateDonation.bloodGroup,
+    //       donationDate: updateDonation.donationDate,
+    //       donationTime: updateDonation.donationTime,
+    //       requestMessage: updateDonation.requestMessage,
+    //       donationStatus: updateDonation.donationStatus,
+    //     },
+    //   };
+
+    //   const result = await donationCollection.updateOne(
+    //     filter,
+    //     donationUpdate,
+    //     options
+    //   );
+    //   if (result.modifiedCount === 0) {
+    //     return res
+    //       .status(404)
+    //       .send({ message: "Donation request not found or no changes made" });
+    //   }
+    //   res
+    //     .status(200)
+    //     .send({ message: "Donation request updated successfully", result });
+    // });
     app.patch("/donationRequest/:id", async (req, res) => {
       const id = req.params.id;
-      const updateDonation = req.body;
+      const { donationStatus } = req.body; // Only status
       const filter = { _id: new ObjectId(id) };
-      const options = { upsert: true };
-      const donationUpdate = {
-        $set: {
-          requesterName: updateDonation.requesterName,
-          requesterEmail: updateDonation.requesterEmail,
-          recipientName: updateDonation.recipientName,
-          recipientDistrict: updateDonation.recipientDistrict,
-          recipientUpazila: updateDonation.recipientUpazila,
-          hospitalName: updateDonation.hospitalName,
-          fullAddress: updateDonation.fullAddress,
-          bloodGroup: updateDonation.bloodGroup,
-          donationDate: updateDonation.donationDate,
-          donationTime: updateDonation.donationTime,
-          requestMessage: updateDonation.requestMessage,
-          donationStatus: updateDonation.donationStatus,
-        },
-      };
 
       const result = await donationCollection.updateOne(
         filter,
-        donationUpdate,
-        options
+        { $set: { donationStatus } } // Only update status
       );
+
       if (result.modifiedCount === 0) {
         return res
           .status(404)
           .send({ message: "Donation request not found or no changes made" });
       }
+
       res
         .status(200)
-        .send({ message: "Donation request updated successfully", result });
+        .send({ message: "Donation request updated successfully" });
     });
 
     // Get all donation requests by the logged-in user (pagination supported)
@@ -268,7 +290,7 @@ async function run() {
     });
 
     // Add a new donation request
-    app.post("/donation-requests", verifyToken,   async (req, res) => {
+    app.post("/donation-requests", verifyToken, async (req, res) => {
       const {
         requesterName,
         requesterEmail,
@@ -331,7 +353,7 @@ async function run() {
     });
 
     // Get all users (admin only)
-    app.get("/admin/users", verifyToken,  verifyAdmin, async (req, res) => {
+    app.get("/admin/users", verifyToken, verifyAdmin, async (req, res) => {
       try {
         const { status = "all", page = 1, limit = 10 } = req.query;
         const filter = status === "all" ? {} : { status };
@@ -349,24 +371,31 @@ async function run() {
         res.status(500).json({ error: "Failed to fetch users" });
       }
     });
-    app.get("/volunteer/user", verifyToken, verifyVolunteer,  async (req, res) => {
-      try {
-        const { status = "all", page = 1, limit = 10 } = req.query;
-        const filter = status === "all" ? {} : { status };
-        const users = await donationUserCollection
-          .find(filter)
-          .skip((page - 1) * limit)
-          .limit(Number(limit))
-          .toArray();
+    app.get(
+      "/volunteer/user",
+      verifyToken,
+      verifyVolunteer,
+      async (req, res) => {
+        try {
+          const { status = "all", page = 1, limit = 10 } = req.query;
+          const filter = status === "all" ? {} : { status };
+          const users = await donationUserCollection
+            .find(filter)
+            .skip((page - 1) * limit)
+            .limit(Number(limit))
+            .toArray();
 
-        const totalUsers = await donationUserCollection.countDocuments(filter);
-        const totalPages = Math.ceil(totalUsers / limit);
+          const totalUsers = await donationUserCollection.countDocuments(
+            filter
+          );
+          const totalPages = Math.ceil(totalUsers / limit);
 
-        res.json({ users, totalUsers, totalPages });
-      } catch (error) {
-        res.status(500).json({ error: "Failed to fetch users" });
+          res.json({ users, totalUsers, totalPages });
+        } catch (error) {
+          res.status(500).json({ error: "Failed to fetch users" });
+        }
       }
-    });
+    );
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
       const result = await donationUserCollection.findOne({ email: email });
@@ -578,15 +607,13 @@ async function run() {
       res.send(result);
     });
 
-
     // Endpoint to create a payment intent (for Stripe)
 
-    app.get('/funds', verifyToken, async (req, res) => {
+    app.get("/funds", verifyToken, async (req, res) => {
       const { page = 1, limit = 10 } = req.query;
       const pageNumber = parseInt(page);
       const pageSize = parseInt(limit);
-      const funds = await FundingCollection
-        .find()
+      const funds = await FundingCollection.find()
         .sort({ fundingDate: -1 })
         .skip((pageNumber - 1) * pageSize)
         .limit(pageSize)
@@ -595,39 +622,35 @@ async function run() {
       res.send({ funds, totalContributions });
     });
 
-
-    app.post('/create-payment-intent', async (req, res) => {
-    
-        const { fundAmount } = req.body;
-        if (!fundAmount) {
-          return res.status(400).json({ error: "Fund amount is required" });
-        }
-        const amount = parseInt(fundAmount * 100);
-        try {
+    app.post("/create-payment-intent", async (req, res) => {
+      const { fundAmount } = req.body;
+      if (!fundAmount) {
+        return res.status(400).json({ error: "Fund amount is required" });
+      }
+      const amount = parseInt(fundAmount * 100);
+      try {
         const paymentIntent = await stripe.paymentIntents.create({
           amount: amount,
-          currency: 'usd',
-          payment_method_types: ['card']
+          currency: "usd",
+          payment_method_types: ["card"],
         });
 
         res.send({
-          clientSecret: paymentIntent.client_secret
-        })
+          clientSecret: paymentIntent.client_secret,
+        });
       } catch (error) {
-        console.error('Stripe error:', error);
+        console.error("Stripe error:", error);
         res.status(500).json({ error: error.message });
       }
     });
 
-    app.post('/give-fund', verifyToken, async (req, res) => {
+    app.post("/give-fund", verifyToken, async (req, res) => {
       const fund = req.body;
       const result = await FundingCollection.insertOne(fund);
       res.send(result);
     });
 
-
-
-      // Send a ping to confirm a successful connection
+    // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
